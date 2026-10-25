@@ -1,0 +1,251 @@
+# Update Guide: Enterprise Device Fingerprinting `rules.json`
+
+This guide outlines the changes made to `config/rules.json` to incorporate all **13 threat test scenarios** (including headless automation, anti-detect patching, geolocation discrepancies, and fake JS click event detections).
+
+---
+
+## Summary of Changes Made
+
+1. **Complete Threat Scenario Mapping:** Integrated new heuristic rules mapped directly to all 13 test scenarios (`HC100`, `HC108`, `HC113`, `HC115`, `HC125`, `HC126`, `HC135`, `HC137`, `HC141`, `HC142`, `HC143`).
+2. **Standardized Scores & Weights:** Assigned proportional risk scores (ranging from `0` to `12` points) based on threat severity.
+3. **Enhanced Descriptions:** Expanded the `description` field for each rule so the diagnostic inspection modal displays clear technical context when clicked.
+
+---
+
+## Action: Overwrite File `config/rules.json`
+
+Replace the existing contents of `config/rules.json` with the following configuration:
+
+```json
+{
+  "rules": [
+    {
+      "id": "HC100",
+      "name": "Device Timezone Mismatch (New York vs IP in India)",
+      "score": 2,
+      "enabled": true,
+      "description": "Flags discrepancy between browser local clock timezone and public IP geolocation."
+    },
+    {
+      "id": "HC101",
+      "name": "Multiple WebRTC IP Leaks",
+      "score": 2,
+      "enabled": true,
+      "description": "Detects distinct public/private IP addresses leaked via WebRTC peer connections."
+    },
+    {
+      "id": "HC102",
+      "name": "Cookies Disabled on Client",
+      "score": 2,
+      "enabled": true,
+      "description": "Client browser rejects session cookies or local storage access."
+    },
+    {
+      "id": "HC106",
+      "name": "Missing Standard Browser Headers",
+      "score": 2,
+      "enabled": true,
+      "description": "Detects absence of standard headers such as Accept-Language or Accept-Encoding."
+    },
+    {
+      "id": "HC108",
+      "name": "Mobile Device Emulated on PC (iPhone / Android)",
+      "score": 8,
+      "enabled": true,
+      "description": "Detects mobile user agents running on x86_64 desktop architecture."
+    },
+    {
+      "id": "HC109",
+      "name": "Jailbroken iOS Device",
+      "score": 4,
+      "enabled": true,
+      "description": "Cydia or jailbreak substrate files detected on iOS runtime."
+    },
+    {
+      "id": "HC110",
+      "name": "Rooted Android Device",
+      "score": 5,
+      "enabled": true,
+      "description": "Root access binaries or su paths detected on Android OS."
+    },
+    {
+      "id": "HC113",
+      "name": "Unusual Screen Size (1111x333)",
+      "score": 2,
+      "enabled": true,
+      "description": "Flags non-standard display viewports or zero-dimensional frames."
+    },
+    {
+      "id": "HC114",
+      "name": "Unpopular or Unknown User-Agent",
+      "score": 2,
+      "enabled": true,
+      "description": "Flags unrecognizable, empty, or unparseable user-agent strings."
+    },
+    {
+      "id": "HC115",
+      "name": "Anti-Detect Browser (Patched Canvas + Fake Hardware)",
+      "score": 5,
+      "enabled": true,
+      "description": "Detects custom browser patches randomizing canvas hashing or hardware concurrency."
+    },
+    {
+      "id": "HC116",
+      "name": "Privacy Browser Profile",
+      "score": 1,
+      "enabled": true,
+      "description": "Detects hardened privacy configurations blocking device fingerprints."
+    },
+    {
+      "id": "HC117",
+      "name": "Suspicious Browser Profile - Bots or Postman",
+      "score": 12,
+      "enabled": true,
+      "description": "Detects API testing clients (Postman, cURL, Requests) or bot scripts."
+    },
+    {
+      "id": "HC118",
+      "name": "Privacy Extension Interference",
+      "score": 2,
+      "enabled": true,
+      "description": "Detects anti-tracking extensions altering standard JS DOM attributes."
+    },
+    {
+      "id": "HC120",
+      "name": "Suspicious Browser Profile - Medium Risk",
+      "score": 3,
+      "enabled": true,
+      "description": "Minor request header inconsistencies detected."
+    },
+    {
+      "id": "HC121",
+      "name": "Suspicious Browser Profile - High Risk",
+      "score": 5,
+      "enabled": true,
+      "description": "Multiple anomalies detected across client headers and rendering attributes."
+    },
+    {
+      "id": "HC122",
+      "name": "Browser Version Age Between 1-2 Years",
+      "score": 1,
+      "enabled": true,
+      "description": "Flags moderately old browser releases."
+    },
+    {
+      "id": "HC123",
+      "name": "Browser Version Age Between 2-5 Years",
+      "score": 3,
+      "enabled": true,
+      "description": "Flags outdated browser versions."
+    },
+    {
+      "id": "HC124",
+      "name": "Outdated Browser Version (Chrome 80 / 2020)",
+      "score": 8,
+      "enabled": true,
+      "description": "Flags legacy browser versions older than 5 years."
+    },
+    {
+      "id": "HC125",
+      "name": "User-Agent vs Platform Spoofing (Mac Safari on Windows)",
+      "score": 8,
+      "enabled": true,
+      "description": "Discrepancy between User-Agent OS claim and JS navigator.platform."
+    },
+    {
+      "id": "HC126",
+      "name": "Device Shared Across Multiple Users (6+ Accounts)",
+      "score": 5,
+      "enabled": true,
+      "description": "Excessive account velocity associated with a single hardware identifier."
+    },
+    {
+      "id": "HC133",
+      "name": "Dynamic Component Canvas Blocked",
+      "score": 0,
+      "enabled": true,
+      "description": "Client script failed to obtain valid Canvas/WebGL render fingerprint."
+    },
+    {
+      "id": "HC134",
+      "name": "Commercial Proxy / VPN Connection",
+      "score": 4,
+      "enabled": true,
+      "description": "IP address identified as a datacenter, VPN, or proxy exit node."
+    },
+    {
+      "id": "HC135",
+      "name": "Clicks Fired from JavaScript (Fake Events)",
+      "score": 6,
+      "enabled": true,
+      "description": "Detects synthetic mouse clicks or programmatic form submissions (isTrusted == false)."
+    },
+    {
+      "id": "HC136",
+      "name": "Screen Mirrored to Display",
+      "score": 0,
+      "enabled": true,
+      "description": "Active external screen broadcasting session."
+    },
+    {
+      "id": "HC137",
+      "name": "Remote Desktop Software Used",
+      "score": 5,
+      "enabled": true,
+      "description": "Session running inside active remote desktop interface (AnyDesk, RDP)."
+    },
+    {
+      "id": "HC138",
+      "name": "Screen Captured During Transaction",
+      "score": 0,
+      "enabled": true,
+      "description": "Active screen recording detected on mobile device."
+    },
+    {
+      "id": "HC139",
+      "name": "Phone Call Active During Transaction",
+      "score": 0,
+      "enabled": true,
+      "description": "Mobile voice call active during checkout execution."
+    },
+    {
+      "id": "HC140",
+      "name": "Device Tethered via USB Debugging",
+      "score": 0,
+      "enabled": true,
+      "description": "Developer USB debugging bridge connected to mobile device."
+    },
+    {
+      "id": "HC141",
+      "name": "Plain Headless Chrome Execution",
+      "score": 10,
+      "enabled": true,
+      "description": "Unmasked headless Chrome browser detected (navigator.webdriver == true)."
+    },
+    {
+      "id": "HC142",
+      "name": "Headless Automation Flag Hidden + Zero Mouse Movement",
+      "score": 12,
+      "enabled": true,
+      "description": "Automation flag spoofed but telemetry records zero cursor movement."
+    },
+    {
+      "id": "HC143",
+      "name": "Tor Anonymizing Exit Node",
+      "score": 12,
+      "enabled": true,
+      "description": "Traffic originates from a known Tor onion router exit node."
+    }
+  ],
+  "thresholds": {
+    "low_max": 4,
+    "medium_min": 5,
+    "medium_max": 11,
+    "high_min": 12
+  },
+  "actions": {
+    "low": "ALLOW",
+    "medium": "CAPTCHA / MFA",
+    "high": "BLOCK / CHALLENGE"
+  }
+}

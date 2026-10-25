@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Device Fingerprinting &amp; Risk Scoring Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#080e1c; --surface:#0f1827; --card-bg:#141f33; --card-border:#1e2f4d;
+      --text:#e2eaf8; --text-muted:#6a83a8;
+      --primary:#3b82f6; --primary-glow:rgba(59,130,246,0.25);
+      --success:#10b981; --success-bg:rgba(16,185,129,0.08); --success-border:rgba(16,185,129,0.35);
+      --warning:#f59e0b; --warning-bg:rgba(245,158,11,0.08); --warning-border:rgba(245,158,11,0.35);
+      --danger:#ef4444; --danger-bg:rgba(239,68,68,0.08); --danger-border:rgba(239,68,68,0.35);
+      --neutral:#6a83a8; --neutral-bg:rgba(106,131,168,0.07); --neutral-border:rgba(106,131,168,0.22);
+      --mono:'JetBrains Mono',ui-monospace,monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin:0; padding:0; font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+    .header { background:linear-gradient(135deg,#0d1b35 0%,#091526 100%); border-bottom:1px solid var(--card-border); padding:22px 32px; display:flex; align-items:center; gap:16px; }
+    .header-icon { font-size:32px; }
+    .header-title { font-size:20px; font-weight:700; letter-spacing:-0.3px; }
+    .header-sub { font-size:13px; color:var(--text-muted); margin-top:2px; }
+    .main { padding:24px 32px; max-width:1300px; margin:0 auto; }
+    .action-bar { display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+    .scenario-bar { display:flex; gap:8px; margin-bottom:24px; flex-wrap:wrap; }
+    .btn-scenario { padding:7px 12px; font-size:11px; }
+    .btn { padding:10px 18px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; border:1px solid transparent; transition:all 0.18s; display:inline-flex; align-items:center; gap:7px; }
+    .btn-primary { background:var(--primary); color:#fff; border-color:var(--primary); }
+    .btn-primary:hover { background:#2563eb; box-shadow:0 0 0 3px var(--primary-glow); }
+    .btn-ghost { background:var(--card-bg); color:var(--text-muted); border-color:var(--card-border); }
+    .btn-ghost:hover { color:var(--text); border-color:#2e4266; background:#1a2840; }
+    .grid-3 { display:grid; grid-template-columns:320px 1fr 360px; gap:20px; }
+    @media(max-width:1100px) { .grid-3 { grid-template-columns:1fr 1fr; } }
+    @media(max-width:700px)  { .grid-3 { grid-template-columns:1fr; } .main { padding:16px; } }
+    .card { background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px; padding:20px; box-shadow:0 4px 24px rgba(0,0,0,0.25); }
+    .card-title { font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-muted); margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; }
+    .severity-display { text-align:center; margin-bottom:20px; padding:20px; border-radius:10px; border:1px solid; transition:all 0.3s; }
+    .sev-low   { background:var(--success-bg); border-color:var(--success-border); }
+    .sev-med   { background:var(--warning-bg); border-color:var(--warning-border); }
+    .sev-high  { background:var(--danger-bg);  border-color:var(--danger-border);  }
+    .sev-ready { background:rgba(59,130,246,0.07); border-color:rgba(59,130,246,0.3); }
+    .sev-label { font-size:26px; font-weight:800; letter-spacing:2px; display:block; }
+    .sev-low   .sev-label { color:var(--success); }
+    .sev-med   .sev-label { color:var(--warning); }
+    .sev-high  .sev-label { color:var(--danger);  }
+    .sev-ready .sev-label { color:var(--primary); }
+    .sev-action { font-size:12px; color:var(--text-muted); margin-top:4px; }
+    .score-wrap { margin-bottom:20px; }
+    .score-header { display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted); margin-bottom:6px; }
+    .score-number { font-size:22px; font-weight:700; font-family:var(--mono); color:var(--text); }
+    .score-bar-bg { height:8px; background:rgba(255,255,255,0.07); border-radius:99px; overflow:hidden; }
+    .score-bar-fill { height:100%; border-radius:99px; transition:width 0.6s cubic-bezier(.4,0,.2,1), background 0.4s; background:var(--success); }
+    .score-bar-fill.med  { background:var(--warning); }
+    .score-bar-fill.high { background:var(--danger);  }
+    .data-row { display:flex; justify-content:space-between; align-items:flex-start; padding:9px 0; border-bottom:1px solid rgba(255,255,255,0.04); font-size:13px; gap:12px; }
+    .data-row:last-child { border-bottom:none; }
+    .data-label { color:var(--text-muted); white-space:nowrap; }
+    .data-value { font-family:var(--mono); font-size:12px; text-align:right; word-break:break-all; }
+    .rules-header { font-size:12px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; }
+    .rule-counts { display:flex; gap:12px; }
+    .rule-count { font-size:11px; font-weight:700; letter-spacing:0.5px; display:flex; align-items:center; gap:4px; }
+    .rule-count-triggered { color:var(--danger); }
+    .rule-count-passed    { color:var(--success); }
+    .rule-item { display:flex; align-items:flex-start; gap:12px; padding:12px 14px; border-radius:8px; border:1px solid; margin-bottom:8px; transition:transform 0.15s, box-shadow 0.15s; animation:slideIn 0.25s ease both; cursor:pointer; }
+    .rule-item:hover { transform:translateX(2px); box-shadow:0 0 0 1px rgba(59,130,246,0.35); }
+    .rule-hint { font-size:11px; color:var(--text-muted); font-weight:500; letter-spacing:0; text-transform:none; margin-top:8px; }
+    @keyframes slideIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+    .rule-triggered    { background:var(--danger-bg);  border-color:var(--danger-border);  }
+    .rule-passed       { background:var(--success-bg); border-color:var(--success-border); }
+    .rule-not-evaluated{ background:var(--neutral-bg); border-color:var(--neutral-border); opacity:0.75; }
+    .rule-placeholder  { background:rgba(59,130,246,0.06); border-color:rgba(59,130,246,0.2); color:var(--text-muted); font-size:13px; justify-content:center; text-align:center; }
+    .rule-icon { font-size:17px; flex-shrink:0; line-height:1; margin-top:2px; }
+    .rule-body { flex:1; min-width:0; }
+    .rule-id-name { font-size:12px; font-weight:700; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .rule-id { font-family:var(--mono); font-size:11px; padding:1px 7px; border-radius:4px; border:1px solid; }
+    .rule-triggered     .rule-id { color:var(--danger);  border-color:var(--danger-border);  background:rgba(239,68,68,0.12); }
+    .rule-passed        .rule-id { color:var(--success); border-color:var(--success-border); background:rgba(16,185,129,0.12); }
+    .rule-not-evaluated .rule-id { color:var(--neutral); border-color:var(--neutral-border); background:rgba(106,131,168,0.10); }
+    .rule-name { color:var(--text); font-size:12px; font-weight:600; }
+    .rule-desc { font-size:11.5px; margin-top:4px; line-height:1.5; }
+    .rule-triggered     .rule-desc { color:#f87171; }
+    .rule-passed        .rule-desc { color:#6ee7b7; }
+    .rule-not-evaluated .rule-desc { color:var(--text-muted); font-style:italic; }
+    .rule-score { font-family:var(--mono); font-size:12px; font-weight:700; white-space:nowrap; flex-shrink:0; margin-top:2px; }
+    .rule-triggered     .rule-score { color:var(--danger); }
+    .rule-passed        .rule-score { color:var(--success); }
+    .rule-not-evaluated .rule-score { color:var(--neutral); }
+    .rule-count-pending { color:var(--neutral); }
+    pre#jsonViewer { background:#050b14; border:1px solid var(--card-border); border-radius:8px; padding:16px; overflow:auto; font-family:var(--mono); font-size:12px; color:#60a5fa; max-height:640px; line-height:1.6; margin:0; }
+    .spinner { display:inline-block; width:13px; height:13px; border:2px solid rgba(255,255,255,0.25); border-top-color:#fff; border-radius:50%; animation:spin 0.7s linear infinite; vertical-align:middle; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .modal-overlay { position:fixed; inset:0; background:rgba(4,8,18,0.72); backdrop-filter:blur(6px); display:none; align-items:center; justify-content:center; z-index:50; padding:20px; }
+    .modal-overlay.open { display:flex; }
+    .modal-card { width:min(520px,100%); background:var(--card-bg); border:1px solid var(--card-border); border-radius:14px; box-shadow:0 24px 64px rgba(0,0,0,0.5); padding:22px 24px; max-height:min(80vh,680px); overflow:auto; }
+    .modal-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:16px; }
+    .modal-kicker { font-size:11px; font-weight:700; letter-spacing:0.8px; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px; }
+    .modal-title { font-size:16px; font-weight:700; }
+    .modal-close { background:transparent; border:1px solid var(--card-border); color:var(--text-muted); width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:18px; line-height:1; }
+    .modal-close:hover { color:var(--text); border-color:#2e4266; }
+    .modal-status { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; padding:4px 8px; border-radius:6px; border:1px solid; margin-bottom:14px; }
+    .modal-status.triggered { color:var(--danger); border-color:var(--danger-border); background:var(--danger-bg); }
+    .modal-status.passed { color:var(--success); border-color:var(--success-border); background:var(--success-bg); }
+    .modal-status.not_evaluated { color:var(--neutral); border-color:var(--neutral-border); background:var(--neutral-bg); }
+    .detail-row { display:flex; justify-content:space-between; gap:16px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); font-size:13px; }
+    .detail-row:last-child { border-bottom:none; }
+    .detail-key { color:var(--text-muted); flex-shrink:0; }
+    .detail-val { font-family:var(--mono); font-size:12px; text-align:right; word-break:break-word; color:var(--text); }
+    html { color-scheme:dark; }
+    body {
+      background:
+        radial-gradient(ellipse at 12% 0%, rgba(30,64,175,0.2), transparent 34rem),
+        radial-gradient(ellipse at 90% 8%, rgba(14,116,144,0.12), transparent 30rem),
+        #020617;
+      color:#e2e8f0;
+    }
+    .header {
+      position:sticky; top:0; z-index:40; padding:16px 24px;
+      background:rgba(15,23,42,0.88); border-color:rgba(51,65,85,0.75);
+      backdrop-filter:blur(18px);
+    }
+    .header-title { color:#f8fafc; }
+    .header-sub { color:#94a3b8; }
+    .header-title::after {
+      content:"v2.4 ENTERPRISE"; display:inline-block; vertical-align:middle;
+      margin-left:10px; padding:3px 8px; border:1px solid rgba(59,130,246,0.35);
+      border-radius:999px; background:rgba(59,130,246,0.1); color:#93c5fd;
+      font:600 9px var(--mono); letter-spacing:0.5px;
+    }
+    .main { max-width:1700px; padding:24px; }
+    .grid-3 { grid-template-columns:minmax(245px,3fr) minmax(360px,5fr) minmax(310px,4fr); gap:20px; }
+    .card {
+      min-width:0; padding:22px; border-radius:16px;
+      background:rgba(15,23,42,0.72); border-color:rgba(51,65,85,0.72);
+      box-shadow:0 18px 48px rgba(0,0,0,0.24); backdrop-filter:blur(16px);
+    }
+    .card-title,.rules-header { color:#94a3b8; }
+    .severity-display { border-radius:16px; padding:24px; }
+    .sev-low { box-shadow:0 0 30px rgba(16,185,129,0.08); }
+    .sev-med { box-shadow:0 0 30px rgba(245,158,11,0.1); }
+    .sev-high { box-shadow:0 0 30px rgba(239,68,68,0.12); }
+    .score-bar-bg { height:10px; border:1px solid rgba(71,85,105,0.55); }
+    .grid-3 > .card:nth-child(2),.grid-3 > .card:nth-child(3) {
+      display:flex; flex-direction:column; height:calc(100vh - 220px); min-height:440px;
+    }
+    #rulesContainer { flex:1; min-height:0; overflow-y:auto; padding-right:5px; }
+    #jsonViewer { flex:1; min-height:0; max-height:none; }
+    .rule-counts { flex-wrap:wrap; justify-content:flex-end; }
+    .rule-item { background-color:rgba(15,23,42,0.42); }
+    .rule-triggered { background-color:rgba(127,29,29,0.2); }
+    .rule-passed { background-color:rgba(6,78,59,0.15); }
+    .btn { border-radius:10px; }
+    .btn-primary { box-shadow:0 8px 24px rgba(37,99,235,0.22); }
+    .json-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .copy-json {
+      padding:6px 9px; background:rgba(30,41,59,0.8); color:#93c5fd;
+      border:1px solid rgba(71,85,105,0.7); border-radius:7px;
+      font:600 10px var(--mono); cursor:pointer;
+    }
+    .copy-json:hover { background:#1e293b; color:#bfdbfe; }
+    ::-webkit-scrollbar { width:6px; height:6px; }
+    ::-webkit-scrollbar-track { background:#020617; }
+    ::-webkit-scrollbar-thumb { background:#334155; border-radius:999px; }
+    ::-webkit-scrollbar-thumb:hover { background:#475569; }
+    @media(max-width:1100px) {
+      .grid-3 { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+      .grid-3 > .card:first-child { grid-column:1 / -1; }
+      .grid-3 > .card:nth-child(2),.grid-3 > .card:nth-child(3) { height:calc(100vh - 250px); }
+    }
+    @media(max-width:700px) {
+      .header { padding:16px; }
+      .header-title { font-size:17px; }
+      .main { padding:16px; }
+      .grid-3 { grid-template-columns:minmax(0,1fr); }
+      .grid-3 > .card:first-child { grid-column:auto; }
+      .grid-3 > .card:nth-child(2),.grid-3 > .card:nth-child(3) { height:auto; min-height:360px; }
+      .rule-counts { justify-content:flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="header-icon">&#x1F6E1;&#xFE0F;</span>
+    <div>
+      <div class="header-title">Device Fingerprinting &amp; Risk Scoring Engine</div>
+      <div class="header-sub">Live evaluation &middot; SHA-256 device ID &middot; Rule-based threat heuristics</div>
+    </div>
+  </div>
+  <div class="main">
+    <div class="action-bar">
+      <button class="btn btn-primary" id="analyzeBtn" onclick="runAssessment()">&#x1F50D; Analyze My Browser</button>
+      <button class="btn btn-ghost" onclick="runSimulation('postman')">&#x1F916; Simulate Postman / Bot</button>
+      <button class="btn btn-ghost" onclick="runSimulation('outdated')">&#x1F4C5; Simulate Chrome 70 (Outdated)</button>
+      <button class="btn btn-ghost" onclick="runSimulation('curl')">&#x1F4BB; Simulate cURL Request</button>
+    </div>
+    <div class="scenario-bar">
+      <button class="btn btn-ghost btn-scenario" onclick="runSimulation('timezone')">HC100 Timezone NY vs India</button>
+      <button class="btn btn-ghost btn-scenario" onclick="runSimulation('emulator')">HC108 Mobile on PC</button>
+      <button class="btn btn-ghost btn-scenario" onclick="runSimulation('screen')">HC113 Screen 1111x333</button>
+      <button class="btn btn-ghost btn-scenario" onclick="runSimulation('antidetect')">HC115 Anti-Detect</button>
+      <button class="btn btn-ghost btn-scenario" onclick="runSimulation('spoof')">HC125 Mac on Windows</button>
+      <button class="btn btn-ghost btn-scenario" onclick="runSimulation('shared')">HC126 Shared Device</button>
+      <button class="btn btn-ghost btn-scenario" onclick="runSimulation('fakeclick')">HC135 Fake JS Clicks</button>
+      <button class="btn btn-ghost btn-scenario" onclick="runSimulation('rdp')">HC137 Remote Desktop</button>
+      <button class="btn btn-ghost btn-scenario" onclick="runSimulation('headless')">HC141 Headless Chrome</button>
+      <button class="btn btn-ghost btn-scenario" onclick="runSimulation('stealth')">HC142 Hidden WebDriver</button>
+      <button class="btn btn-ghost btn-scenario" onclick="runSimulation('tor')">HC143 Tor Exit</button>
+    </div>
+    <div class="grid-3">
+      <!-- Column 1: Risk Overview -->
+      <div class="card">
+        <div class="card-title">Risk Overview</div>
+        <div class="severity-display sev-ready" id="severityDisplay">
+          <span class="sev-label" id="severityLabel">&#x2014;</span>
+          <div class="sev-action" id="actionLabel">Awaiting evaluation&hellip;</div>
+        </div>
+        <div class="score-wrap">
+          <div class="score-header">
+            <span>Risk Score</span>
+            <span class="score-number" id="scoreVal">&#x2014;</span>
+          </div>
+          <div class="score-bar-bg">
+            <div class="score-bar-fill" id="scoreBar" style="width:0%"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:4px">
+            <span>0 &mdash; LOW</span><span>5 &mdash; MEDIUM</span><span>12+ &mdash; HIGH</span>
+          </div>
+        </div>
+        <div class="data-row"><span class="data-label">Device ID</span><span class="data-value" style="max-width:170px" id="deviceIdVal">&#x2014;</span></div>
+        <div class="data-row"><span class="data-label">Browser</span><span class="data-value" id="browserVal">&#x2014;</span></div>
+        <div class="data-row"><span class="data-label">OS</span><span class="data-value" id="osVal">&#x2014;</span></div>
+        <div class="data-row"><span class="data-label">Bot?</span><span class="data-value" id="isBotVal">&#x2014;</span></div>
+        <div class="data-row"><span class="data-label">Evaluated At</span><span class="data-value" id="evalAtVal">&#x2014;</span></div>
+      </div>
+      <!-- Column 2: Rule Evaluation Panel -->
+      <div class="card">
+        <div class="rules-header">
+          <span>Rule Evaluation</span>
+          <div class="rule-counts" id="ruleCounts"></div>
+        </div>
+        <div id="rulesContainer">
+          <div class="rule-item rule-placeholder">
+            Click <strong>&ldquo;Analyze My Browser&rdquo;</strong> to run a live evaluation
+          </div>
+        </div>
+        <div class="rule-hint">Click any rule card to inspect telemetry evidence</div>
+      </div>
+      <!-- Column 3: JSON Inspector -->
+      <div class="card">
+        <div class="card-title json-heading">
+          <span>JSON Payload Output</span>
+          <button class="copy-json" type="button" onclick="copyJsonResponse()">Copy JSON</button>
+        </div>
+        <pre id="jsonViewer">// Awaiting API response&hellip;</pre>
+      </div>
+    </div>
+  </div>
+  <canvas id="fpCanvas" width="200" height="40" style="display:none"></canvas>
+  <div class="modal-overlay" id="attrModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" onclick="onOverlayClick(event)">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <div class="modal-kicker" id="modalKicker">Attribute evidence</div>
+          <div class="modal-title" id="modalTitle">Rule details</div>
+        </div>
+        <button type="button" class="modal-close" onclick="closeAttributeModal()" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-status passed" id="modalStatus">PASSED</div>
+      <div id="modalDetails"></div>
+    </div>
+  </div>
+  <script>
+    function getCanvasHash() {
+      try {
+        var c = document.getElementById('fpCanvas'), x = c.getContext('2d');
+        x.textBaseline = 'top'; x.font = '14px Arial';
+        x.fillStyle = '#f60'; x.fillRect(125, 1, 62, 20);
+        x.fillStyle = '#069'; x.fillText('FingerprintEngine', 2, 15);
+        x.fillStyle = 'rgba(102,204,0,0.7)'; x.fillText('FingerprintEngine', 4, 17);
+        var d = c.toDataURL(), h = 0;
+        for (var i = 0; i < d.length; i++) { h = ((h << 5) - h) + d.charCodeAt(i); h |= 0; }
+        return 'canvas_' + Math.abs(h).toString(16);
+      } catch (e) { return 'canvas_unavailable'; }
+    }
+
+    var currentResponse = null;
+
+    async function evaluateRequest(payload) {
+      var btn = document.getElementById('analyzeBtn');
+      btn.innerHTML = '<span class="spinner"></span> Analyzing\u2026';
+      btn.disabled = true;
+      document.getElementById('jsonViewer').innerText = 'Analyzing request\u2026';
+      try {
+        var resp = await fetch('/api/v1/fingerprint/score', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        var data = await resp.json();
+        if (!resp.ok) {
+          throw new Error(data.details || data.error || 'Request failed with status ' + resp.status);
+        }
+        currentResponse = data;
+        renderResult(data);
+      } catch (err) {
+        currentResponse = null;
+        document.getElementById('jsonViewer').innerText = JSON.stringify({
+          status: 'error',
+          message: err.message
+        }, null, 2);
+        document.getElementById('severityDisplay').className = 'severity-display sev-ready';
+        document.getElementById('severityLabel').innerText = 'ERROR';
+        document.getElementById('actionLabel').innerText = 'Unable to complete analysis';
+        document.getElementById('scoreVal').innerText = '\u2014';
+        document.getElementById('scoreBar').style.width = '0%';
+        document.getElementById('rulesContainer').innerHTML =
+          '<div class="rule-item rule-placeholder">Analysis failed. Check the API response for details.</div>';
+        document.getElementById('ruleCounts').innerHTML = '';
+      } finally {
+        btn.innerHTML = '&#x1F50D; Analyze My Browser';
+        btn.disabled = false;
+      }
+    }
+
+    function renderResult(data) {
+      document.getElementById('jsonViewer').innerText = JSON.stringify(data, null, 2);
+
+      var sev = data.risk_severity;
+      var sevEl = document.getElementById('severityDisplay');
+      sevEl.className = 'severity-display ' + (sev === 'LOW' ? 'sev-low' : sev === 'MEDIUM' ? 'sev-med' : sev === 'HIGH' ? 'sev-high' : 'sev-ready');
+      document.getElementById('severityLabel').innerText = sev || '\u2014';
+      document.getElementById('actionLabel').innerText = data.recommended_action || '\u2014';
+
+      var score = data.risk_score || 0;
+      document.getElementById('scoreVal').innerText = score;
+      var pct = Math.min((score / 12) * 100, 100);
+      var bar = document.getElementById('scoreBar');
+      bar.style.width = pct + '%';
+      bar.className = 'score-bar-fill' + (sev === 'HIGH' ? ' high' : sev === 'MEDIUM' ? ' med' : '');
+
+      var meta = data.parsed_metadata || {}, br = meta.browser || {}, os = meta.os || {};
+      var fid = data.device_id || '\u2014', sid = fid.length > 16 ? fid.substring(0, 16) + '\u2026' : fid;
+      var dv = document.getElementById('deviceIdVal'); dv.innerText = sid; dv.title = fid;
+      document.getElementById('browserVal').innerText = (br.family || '?') + ' ' + (br.version || '');
+      document.getElementById('osVal').innerText = (os.family || '?') + ' ' + (os.version || '');
+      document.getElementById('isBotVal').innerText = meta.is_bot ? '\u26a0\ufe0f Yes' : '\u2705 No';
+      document.getElementById('evalAtVal').innerText = data.evaluated_at ? new Date(data.evaluated_at).toLocaleTimeString() : '\u2014';
+
+      /* Rule Evaluation Panel */
+      var evaluated = data.evaluated_rules || [];
+      var container = document.getElementById('rulesContainer');
+
+      if (!evaluated.length) {
+        container.innerHTML = '<div class="rule-item rule-placeholder">No rule evaluation data returned.</div>';
+        document.getElementById('ruleCounts').innerHTML = '';
+        return;
+      }
+
+      var tc = evaluated.filter(function(r) { return r.status === 'triggered'; }).length;
+      var pc = evaluated.filter(function(r) { return r.status === 'passed'; }).length;
+      var nc = evaluated.filter(function(r) { return r.status === 'not_evaluated'; }).length;
+      document.getElementById('ruleCounts').innerHTML =
+        '<span class="rule-count rule-count-triggered">\u26a0\ufe0f ' + tc + ' triggered</span>' +
+        '<span class="rule-count rule-count-passed">\u2705 ' + pc + ' passed</span>' +
+        (nc ? '<span class="rule-count rule-count-pending">\u23F3 ' + nc + ' pending</span>' : '');
+
+      /* Sort: triggered first, then passed, then not_evaluated */
+      var statusOrder = { 'triggered': 0, 'passed': 1, 'not_evaluated': 2 };
+      var sorted = [].concat(evaluated).sort(function(a, b) {
+        return (statusOrder[a.status] || 2) - (statusOrder[b.status] || 2);
+      });
+
+      container.innerHTML = sorted.map(function(rule, i) {
+        var isTrig = rule.status === 'triggered';
+        var isPend = rule.status === 'not_evaluated';
+        var cls  = isTrig ? 'rule-triggered' : (isPend ? 'rule-not-evaluated' : 'rule-passed');
+        var icon = isTrig ? '\u26a0\ufe0f' : (isPend ? '\u23F3' : '\u2705');
+        var pts  = isTrig ? '+' + rule.score_impact + ' pts' : (isPend ? 'N/A' : '0 pts');
+        var desc = isPend ? (rule.description || 'No active evaluator — rule awaiting implementation.') : (rule.description || '\u2014');
+        return (
+          '<div class="rule-item ' + cls + '" role="button" tabindex="0" data-rule-index="' + i + '" style="animation-delay:' + (i * 30) + 'ms" title="Click to inspect evidence">' +
+            '<span class="rule-icon">' + icon + '</span>' +
+            '<div class="rule-body">' +
+              '<div class="rule-id-name">' +
+                '<span class="rule-id">' + escapeHtml(rule.id) + '</span>' +
+                '<span class="rule-name">' + escapeHtml(rule.name) + '</span>' +
+              '</div>' +
+              '<div class="rule-desc">' + escapeHtml(desc) + '</div>' +
+            '</div>' +
+            '<span class="rule-score">' + pts + '</span>' +
+          '</div>'
+        );
+      }).join('');
+
+      container.querySelectorAll('.rule-item').forEach(function(el) {
+        var idx = parseInt(el.getAttribute('data-rule-index'), 10);
+        el.addEventListener('click', function() { openAttributeModal(sorted[idx]); });
+        el.addEventListener('keydown', function(evt) {
+          if (evt.key === 'Enter' || evt.key === ' ') {
+            evt.preventDefault();
+            openAttributeModal(sorted[idx]);
+          }
+        });
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function openAttributeModal(rule) {
+      if (!rule) return;
+      document.getElementById('modalKicker').innerText = rule.id || 'Attribute';
+      document.getElementById('modalTitle').innerText = rule.name || 'Rule details';
+      var statusEl = document.getElementById('modalStatus');
+      var status = rule.status || 'passed';
+      statusEl.className = 'modal-status ' + status;
+      statusEl.innerText = (status === 'triggered' ? 'TRIGGERED' : status === 'not_evaluated' ? 'PENDING' : 'PASSED') +
+        (rule.score_impact ? '  +' + rule.score_impact + ' pts' : '');
+      var details = rule.details || {};
+      var keys = Object.keys(details);
+      var html = keys.length
+        ? keys.map(function(k) {
+            return '<div class="detail-row"><span class="detail-key">' + escapeHtml(k) + '</span><span class="detail-val">' + escapeHtml(details[k]) + '</span></div>';
+          }).join('')
+        : '<div class="detail-row"><span class="detail-key">Evidence</span><span class="detail-val">No telemetry attached for this rule.</span></div>';
+      document.getElementById('modalDetails').innerHTML = html;
+      document.getElementById('attrModal').classList.add('open');
+    }
+
+    function closeAttributeModal() {
+      document.getElementById('attrModal').classList.remove('open');
+    }
+
+    function onOverlayClick(event) {
+      if (event.target === event.currentTarget) closeAttributeModal();
+    }
+
+    async function copyJsonResponse() {
+      if (!currentResponse) return;
+      try {
+        await navigator.clipboard.writeText(JSON.stringify(currentResponse, null, 2));
+      } catch (err) {
+        document.getElementById('jsonViewer').innerText =
+          'Clipboard copy failed: ' + err.message + '\n\n' + JSON.stringify(currentResponse, null, 2);
+      }
+    }
+
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Escape') closeAttributeModal();
+    });
+
+    var mouseMoves = 0;
+    var sawUntrustedClick = false;
+    document.addEventListener('mousemove', function() { mouseMoves += 1; }, { passive: true });
+    document.addEventListener('click', function(evt) {
+      if (evt && evt.isTrusted === false) sawUntrustedClick = true;
+    }, true);
+
+    function livePayload() {
+      return {
+        screen_resolution: window.screen.width + 'x' + window.screen.height,
+        screen_depth: window.screen.colorDepth,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        canvas_hash: getCanvasHash(),
+        platform: navigator.platform,
+        cookies_enabled: navigator.cookieEnabled,
+        webdriver: !!navigator.webdriver,
+        hardware_concurrency: navigator.hardwareConcurrency || 0,
+        mouse_movement: mouseMoves
+      };
+    }
+
+    function runAssessment() {
+      var payload = livePayload();
+      if (sawUntrustedClick) payload.click_trusted = false;
+      evaluateRequest(payload);
+    }
+
+    function runSimulation(type) {
+      var cleanHeaders = { 'Accept-Language': 'en-US,en;q=0.9', 'Accept-Encoding': 'gzip, deflate, br' };
+      var chromeWin = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+      if (type === 'postman') {
+        evaluateRequest({ headers: { 'User-Agent': 'PostmanRuntime/7.36.0', 'Postman-Token': '62bf19b4-b033-4f9e-8761-123456789abc' } });
+      } else if (type === 'outdated') {
+        evaluateRequest({
+          user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36',
+          headers: cleanHeaders
+        });
+      } else if (type === 'curl') {
+        evaluateRequest({ headers: { 'User-Agent': 'curl/7.88.1' } });
+      } else if (type === 'timezone') {
+        evaluateRequest({ headers: Object.assign({ 'User-Agent': chromeWin }, cleanHeaders), timezone: 'America/New_York', ip_timezone: 'Asia/Kolkata', platform: 'Win32' });
+      } else if (type === 'emulator') {
+        evaluateRequest({
+          user_agent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+          headers: cleanHeaders,
+          platform: 'Win32',
+          cpu_arch: 'x86_64',
+          is_emulator: true
+        });
+      } else if (type === 'screen') {
+        evaluateRequest({ headers: Object.assign({ 'User-Agent': chromeWin }, cleanHeaders), screen_resolution: '1111x333', screen_depth: 24, platform: 'Win32' });
+      } else if (type === 'antidetect') {
+        evaluateRequest({ headers: Object.assign({ 'User-Agent': chromeWin }, cleanHeaders), canvas_noise: true, hardware_concurrency: 1, canvas_hash: 'patched_canvas_deadbeef', antidetect: true, platform: 'Win32' });
+      } else if (type === 'spoof') {
+        evaluateRequest({
+          user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+          headers: cleanHeaders,
+          platform: 'Win32'
+        });
+      } else if (type === 'shared') {
+        evaluateRequest({ headers: Object.assign({ 'User-Agent': chromeWin }, cleanHeaders), shared_user_count: 6, platform: 'Win32' });
+      } else if (type === 'fakeclick') {
+        evaluateRequest({ headers: Object.assign({ 'User-Agent': chromeWin }, cleanHeaders), click_trusted: false, platform: 'Win32' });
+      } else if (type === 'rdp') {
+        evaluateRequest({ headers: Object.assign({ 'User-Agent': chromeWin }, cleanHeaders), remote_desktop: true, remote_tool: 'AnyDesk', platform: 'Win32' });
+      } else if (type === 'headless') {
+        evaluateRequest({
+          user_agent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/122.0.0.0 Safari/537.36',
+          headers: cleanHeaders,
+          webdriver: true,
+          platform: 'Linux x86_64'
+        });
+      } else if (type === 'stealth') {
+        evaluateRequest({ headers: Object.assign({ 'User-Agent': chromeWin }, cleanHeaders), webdriver: false, webdriver_hidden: true, mouse_movement: 0, platform: 'Win32' });
+      } else if (type === 'tor') {
+        evaluateRequest({
+          user_agent: 'Mozilla/5.0 (Windows NT 10.0; rv:109.0) Gecko/20100101 Firefox/115.0 Tor Browser',
+          headers: cleanHeaders,
+          is_tor: true,
+          platform: 'Win32'
+        });
+      }
+    }
+
+    window.onload = runAssessment;
+  </script>
+</body>
+</html>
